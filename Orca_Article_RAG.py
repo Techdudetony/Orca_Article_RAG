@@ -1,99 +1,149 @@
-﻿import json
-import numpy as np
+﻿import requests
+import os
+from bs4 import BeautifulSoup
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+from transformers import pipeline
 
-# Load the SentenceTransformers model
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-
-# Load the HuggingFace model and tokenizer
-hf_model_name = "google/flan-t5-small"
-tokenizer = T5Tokenizer.from_pretrained(hf_model_name)
-hf_model = T5ForConditionalGeneration.from_pretrained(hf_model_name)
-
-def load_embeddings(file_path="embeddings.json"):
+# Step 1: Get Content from a Webpage or Local File
+def get_document_content():
     """
-    Loads the embeddings from a JSON file.
-
-    Returns:
-        dict: Dictionary of text chunks and their embeddings.
+    Prompts the user to enter either a webpage URL or a local text file path.
+    Returns the extracted text.
     """
-    with open(file_path, "r", encoding="utf-8") as file:
-        return json.load(file)
+    choice = input("Enter '1' to input a webpage URL or '2' to provide a local text file path: ").strip()
 
-def find_similar_chunks(query, embedding_dict, top_n=3):
+    if choice == "1":
+        url = input("Enter the webpage URL: ").strip()
+        return scrape_webpage(url)
+    elif choice == "2":
+        file_path = input("Enter the path to the text file: ").strip()
+        return read_text_file(file_path)
+    else:
+        print("Invalid input. Please enter '1' for a webpage or '2' for a file.")
+        return get_document_content()
+
+def scrape_webpage(url, save_file="Selected_Document.txt"):
     """
-    Finds the top N most similar text chunks to a given query using cosine similarity.
+    Scrapes text from a webpage and saves the extracted content to a text file.
 
     Parameters:
-        query (str): User's query.
-        embedding_dict (dict): Dictionary of text chunks and their embeddings.
-        top_n (int): Number of top similar chunks to retrieve.
+        url (str): The webpage URL to scrape.
+        save_file (str): The filename to save the extracted content.
 
     Returns:
-        list: A list of the top N similar text chunks.
+        str: The extracted text from the webpage.
     """
-    # Generate the query embedding
-    query_embedding = embedding_model.encode([query], convert_to_numpy=True)
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, "html.parser")
 
-    # Convert stored embeddings to numpy arrays
-    texts = list(embedding_dict.keys())
-    embeddings = np.array([np.array(embedding) for embedding in embedding_dict.values()])
+            # Extract visible text from <p> tags
+            paragraphs = soup.find_all("p")
+            page_content = "\n\n".join([p.get_text().strip() for p in paragraphs if p.get_text().strip()])
 
-    # Compute cosine similarity between query and stored embeddings
-    similarities = cosine_similarity(query_embedding, embeddings)[0]
+            # Save the extracted content to a text file
+            with open(save_file, "w", encoding="utf-8") as file:
+                file.write(page_content)
 
-    # Get the top N most similar text chunks
-    top_indices = similarities.argsort()[-top_n:][::-1]
-    top_chunks = [texts[i] for i in top_indices]
+            print(f"Extracted text saved to '{save_file}'")
+            return page_content
+        else:
+            print(f"Failed to fetch the webpage. HTTP Status Code: {response.status_code}")
+            return ""
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching webpage: {e}")
+        return ""
 
-    return top_chunks
-
-def generate_response(query, relevant_chunks):
+def read_text_file(file_path):
     """
-    Generates a response using the HuggingFace FLAN-T5 model.
+    Reads a text file and returns its content.
 
     Parameters:
-        query (str): User's input query.
-        relevant_chunks (list): Retrieved relevant text chunks.
+        file_path (str): The path to the text file.
 
     Returns:
-        str: Generated response.
+        str: The content of the file.
     """
-    # Combine retrieved chunks into a single input prompt
-    context = " ".join(relevant_chunks)
-    prompt = f"Answer the following question based on the context:\n\nContext: {context}\n\nQuestion: {query}"
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+        print(f"Loaded document from '{file_path}'")
+        return content
+    else:
+        print("File not found. Please provide a valid file path.")
+        return get_document_content()
 
-    # Tokenize input for the model
-    inputs = tokenizer(prompt, return_tensors="pt", max_length=512, truncation=True)
+# Step 2: Generate Embeddings
+def generate_embeddings(article_text):
+    """
+    Generates embeddings for a given document text using SentenceTransformers.
 
-    # Generate response
-    output_tokens = hf_model.generate(**inputs, max_length=150)
-    response = tokenizer.decode(output_tokens[0], skip_special_tokens=True)
+    Parameters:
+        article_text (str): The full text of the document.
 
-    return response
+    Returns:
+        tuple: A list of dictionaries containing text chunks and embeddings, and the model.
+    """
+    chunks = article_text.split("\n\n")  # Split text into chunks
+    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")  # Load embedding model
+    embeddings = model.encode(chunks)  # Generate embeddings
 
+    document_store = [{"text": chunk, "embedding": emb} for chunk, emb in zip(chunks, embeddings)]
+    
+    print("Embeddings generated and stored in memory.")
+    return document_store, model
+
+# Step 3: Query System
+def query_system(query, document_store, model, generator):
+    """
+    Retrieves the most relevant chunk using cosine similarity and generates a response.
+
+    Parameters:
+        query (str): The user's input question.
+        document_store (list): A list of document text chunks with embeddings.
+        model (SentenceTransformer): The embedding model.
+        generator (pipeline): The Hugging Face text generation model.
+
+    Returns:
+        tuple: The retrieved text chunk and the AI-generated response.
+    """
+    query_embedding = model.encode([query])[0]
+    similarities = [cosine_similarity([query_embedding], [doc["embedding"]])[0][0] for doc in document_store]
+
+    top_match_index = similarities.index(max(similarities))
+    top_chunk = document_store[top_match_index]["text"]
+
+    prompt = f"Context: {top_chunk}\n\nQuestion: {query}\nAnswer:"
+    response = generator(prompt, max_length=50, num_return_sequences=1)
+
+    return top_chunk, response[0]["generated_text"]
+
+# Main Function
 if __name__ == "__main__":
-    # Load stored embeddings
-    embedding_dict = load_embeddings()
+    # Step 1: Get Document from Webpage or File
+    article_text = get_document_content()
 
-    while True:
-        # Get user query
-        query = input("\nEnter your query (or type 'exit' to quit): ").strip()
-        if query.lower() == "exit":
-            break
+    if article_text:  # Proceed only if valid text was retrieved
+        # Step 2: Generate embeddings for the document
+        document_store, model = generate_embeddings(article_text)
 
-        # Find relevant content
-        relevant_chunks = find_similar_chunks(query, embedding_dict)
+        # Step 3: Load Hugging Face FLAN-T5 model
+        generator = pipeline("text2text-generation", model="google/flan-t5-small")
 
-        # Generate AI response
-        response = generate_response(query, relevant_chunks)
+        print("\nThe document is ready for queries! Type 'exit' to stop.\n")
 
-        # Display results
-        print("\n📌 Retrieved Chunks:")
-        for i, chunk in enumerate(relevant_chunks, 1):
-            print(f"\nChunk {i}: {chunk}")
+        # Step 4: Continuously ask for queries until user exits
+        while True:
+            query = input("Enter your query (or type 'exit' to quit): ").strip()
 
-        print("\n🤖 AI Response:")
-        print(response)
+            if query.lower() == "exit":
+                print("Exiting program. Thank you!")
+                break
+
+            retrieved, response = query_system(query, document_store, model, generator)
+
+            print("\nQuery:", query)
+            print("Retrieved Content:", retrieved)
+            print("Generated Response:", response)
