@@ -82,3 +82,4 @@ I asked the AI five questions to understand how the system works:
 ## 🏆 Example Queries and Outputs
 
 ### **Query 1: "How do killer whales communicate?"**
+>>>>>>> 1a7761ba (Saving local changes before pulling remote updates)
