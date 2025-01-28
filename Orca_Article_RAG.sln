@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35013.160
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "Orca_Article_RAG", "Orca_Article_RAG.pyproj", "{30971D88-FEF3-4D8E-9268-B797991692A1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{30971D88-FEF3-4D8E-9268-B797991692A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{30971D88-FEF3-4D8E-9268-B797991692A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BB5E6101-876D-4248-8D80-EBA9D7E8DD89}
+	EndGlobalSection
+EndGlobal
