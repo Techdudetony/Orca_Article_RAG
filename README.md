@@ -3,9 +3,10 @@
 ## 📄 Name and Explanation of the Document
 This project allows used in this project is the [Wikipedia article on Orcas](https://en.wikipedia.org/wiki/Orca).
 This article provides an overview of:
-- The **biology and behavior** of killer whales.
-- Their **communication, hunting techniques, and social structures**.
-- **Conservation efforts** and their relationship with human activities.
+- The **biology and behavior** of orcas.
+- Their **hunting techniques, and dietary preferences**.
+- **Social structure and pod behaviors**.
+- **Interaction with humans, conservation, and cultural significance**.
 
 ---
 
