@@ -5,3 +5,5 @@ venv/
 *.sln
 embeddings.json
 .gitignore
+*.pyproj.user
+
