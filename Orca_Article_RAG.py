@@ -78,7 +78,7 @@ def read_text_file(file_path):
 # Step 2: Generate Embeddings
 def generate_embeddings(article_text):
     """
-    Generates embeddings for a given document text using SentenceTransformers.
+    Splits the document into sections using \n\n, generates embeddings, and stores them.
 
     Parameters:
         article_text (str): The full text of the document.
@@ -86,13 +86,33 @@ def generate_embeddings(article_text):
     Returns:
         tuple: A list of dictionaries containing text chunks and embeddings, and the model.
     """
-    chunks = article_text.split("\n\n")  # Split text into chunks
-    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")  # Load embedding model
-    embeddings = model.encode(chunks)  # Generate embeddings
+    # Split text using double newlines
+    chunks = article_text.split("\n\n")
 
-    document_store = [{"text": chunk, "embedding": emb} for chunk, emb in zip(chunks, embeddings)]
-    
-    print("Embeddings generated and stored in memory.")
+    # Remove extra whitespace and empty chunks
+    chunks = [chunk.strip() for chunk in chunks if chunk.strip()]
+
+    # Ensure chunks are not too long
+    max_words = 100  # Adjust chunk size for more precise retrieval
+    processed_chunks = []
+    for chunk in chunks:
+        words = chunk.split()
+        if len(words) > max_words:
+            sub_chunks = [" ".join(words[i : i + max_words]) for i in range(0, len(words), max_words)]
+            processed_chunks.extend(sub_chunks)
+        else:
+            processed_chunks.append(chunk)
+
+    # Load the SentenceTransformers model
+    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+
+    # Generate embeddings for each chunk
+    embeddings = model.encode(processed_chunks)
+
+    # Store text chunks and embeddings
+    document_store = [{"text": chunk, "embedding": emb} for chunk, emb in zip(processed_chunks, embeddings)]
+
+    print(f"✅ Generated {len(processed_chunks)} refined text chunks.")
     return document_store, model
 
 # Step 3: Query System
